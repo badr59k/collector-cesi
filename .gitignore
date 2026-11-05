@@ -1,0 +1,20 @@
+# Secrets et configurations locales
+.env
+.env.*
+!.env.example
+
+# Java / Maven
+target/
+*.class
+
+# IntelliJ
+.idea/
+*.iml
+
+# Frontend
+node_modules/
+dist/
+
+# Système
+.DS_Store
+Thumbs.db
