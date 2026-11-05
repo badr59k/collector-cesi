@@ -3,7 +3,6 @@ package com.collector.annonces_service.controller;
 import com.collector.annonces_service.model.Annonce;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
-import com.collector.annonces_service.model.Annonce;
 
 import java.math.BigDecimal;
 
@@ -20,18 +19,17 @@ public class AnnonceController {
         return "Bienvenue sur Collector, la marketplace des passionnés !!";
     }
 
-    @GetMapping("/api/annonces/{id}")
+    @GetMapping("/api/annonces/1")
     public Annonce getAnnonce() {
-
-        Annonce annonce = new Annonce(
-                getAnnonce().getId(),
-                getAnnonces(),
-                "Carte Pokémon rare",
-                new BigDecimal("350.00"),
-                "EN_ATTENTE"
-        );
+        Annonce annonce = new Annonce();
+        annonce.setId(1L);
+        annonce.setPrix(BigDecimal.valueOf(Math.random()));
+        annonce.setDescription("Annonce sur les annonces Collector !");
+        annonce.setTitre("Annonce sur les annonces Collector !");
+        annonce.setStatut("ok");
 
         return annonce;
     }
+
 
 }
