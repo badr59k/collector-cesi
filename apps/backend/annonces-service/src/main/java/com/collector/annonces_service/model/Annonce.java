@@ -16,7 +16,6 @@ public class Annonce {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
     private String titre;
     private String description;
     private BigDecimal prix;

@@ -1,0 +1,46 @@
+name: Backend DevSecOps CI
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "apps/backend/**"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v7
+      - name: Préparer java 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Vérifier Java
+        run: java -version
+      - name: Tester le backend
+        run: ./mvnw test
+        working-directory: apps/backend/annonces-service
+        env:
+          POSTGRES_USER: collector_test
+          POSTGRES_PASSWORD: test_password
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/collector_annonces
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: collector_annonces
+          POSTGRES_USER: collector_test
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U collector_test -d collector_annonces"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
