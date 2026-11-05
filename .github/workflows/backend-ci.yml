@@ -24,7 +24,7 @@ jobs:
       - name: Vérifier Java
         run: java -version
       - name: Tester le backend
-        run: ./mvnw test
+        run: bash ./mvnw test
         working-directory: apps/backend/annonces-service
         env:
           POSTGRES_USER: collector_test
