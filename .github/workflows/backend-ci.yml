@@ -11,7 +11,7 @@ on:
 
 jobs:
   lint-test:
-    name: Tests
+    name: Build & Tests
     runs-on: ubuntu-latest
     steps:
       - name: Récupérer le code
