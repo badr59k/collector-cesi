@@ -1,0 +1,47 @@
+name: Analyse des dependances - Trivy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/backend/**"
+      - ".github/workflows/sca.yml"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sca:
+    name: Scan des dependances
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Recuperer le code
+        uses: actions/checkout@v7
+
+      - name: Preparer Java 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+          cache-dependency-path: apps/backend/annonces-service/pom.xml
+
+      # Recupere les dependances dans le cache Maven.
+      - name: Preparer les dependances
+        run: bash ./mvnw dependency:go-offline
+        working-directory: apps/backend/annonces-service
+
+      # Bloque la CI si une vulnerabilite haute ou critique est detectee.
+      - name: Scanner avec Trivy
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-type: fs
+          scan-ref: apps/backend/annonces-service
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          format: table
