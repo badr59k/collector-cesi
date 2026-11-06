@@ -21,10 +21,10 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - name: Vérifier Java
+      - name: Vérifier la version de Java
         run: java -version
-      - name: Tester le backend
-        run: bash ./mvnw test
+      - name: Build, tests et couverture JaCoCo
+        run: bash ./mvnw clean verify
         working-directory: apps/backend/annonces-service
         env:
           POSTGRES_USER: collector_test
