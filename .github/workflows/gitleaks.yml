@@ -1,5 +1,6 @@
 name: Secret Scanning - Gitleaks
 
+# Vérifie les secrets à chaque push ou PR
 on:
   push:
   pull_request:
@@ -14,12 +15,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Récupère l'historique Git sans garder le token dans le checkout.
       - name: Recuperer le code et l'historique Git
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
 
+      # Analyse les commits. Le job échoue si un secret est repéré.
       - name: Analyser les secrets avec Gitleaks
         run: |
           docker run --rm \

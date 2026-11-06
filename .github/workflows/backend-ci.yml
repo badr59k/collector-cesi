@@ -1,5 +1,6 @@
 name: Backend DevSecOps CI
 
+# Lance la CI quand le backend change ou sur une PR vers main.
 on:
   push:
     branches: [main, master]
@@ -9,6 +10,7 @@ on:
   pull_request:
     branches: [main]
 
+# Le workflow a seulement besoin de lire le dépôt donc permission en lecture uniquement.
 permissions:
   contents: read
 
@@ -17,10 +19,12 @@ jobs:
     name: Build & Tests
     runs-on: ubuntu-latest
     steps:
+      # Récupère le projet avec l'historique Git pour Sonar.
       - name: Récupérer le code
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      # Utilise Java 21 pour compiler et tester le backend.
       - name: Préparer java 21
         uses: actions/setup-java@v6
         with:
@@ -28,18 +32,22 @@ jobs:
           java-version: 21
       - name: Vérifier la version de Java
         run: java -version
+      # Lance Checkstyle, les tests et le seuil JaCoCo.
       - name: Build, tests et couverture JaCoCo
         run: bash ./mvnw clean verify
         working-directory: apps/backend/annonces-service
         env:
+          # Identifiants réservés à la base temporaire des tests.
           POSTGRES_USER: collector_test
           POSTGRES_PASSWORD: test_password
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/collector_annonces
+      # Envoie les résultats à Sonar et vérifie son Quality Gate.
       - name: Analyse SonarQube Cloud
         run: bash ./mvnw -B org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.qualitygate.wait=true
         working-directory: apps/backend/annonces-service
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    # Base PostgreSQL temporaire utilisée par les tests Spring Boot.
     services:
       postgres:
         image: postgres:17-alpine
