@@ -84,6 +84,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
 
     steps:
       # Recupere le code du projet.
@@ -124,6 +125,11 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
+      # Installe Cosign pour signer notre image Docker.
+      - name: Installer Cosign
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: sigstore/cosign-installer@v4.0.0
+
       # Connexion à GHCR (GitHub Container Registry) uniquement sur main.
       - name: Connexion à GHCR
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -140,3 +146,25 @@ jobs:
           IMAGE="ghcr.io/badr59k/collector-annonces:sha-${GITHUB_SHA}"
           docker tag collector-annonces:ci "$IMAGE"
           docker push "$IMAGE"
+
+      # Signe l'image publiée en utilisant son digest.
+      - name: Signer l'image avec Cosign
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          IMAGE="ghcr.io/badr59k/collector-annonces:sha-${GITHUB_SHA}"
+          DIGEST=$(docker buildx imagetools inspect "$IMAGE" --format '{{.Manifest.Digest}}')
+          test -n "$DIGEST"
+          cosign sign --yes "ghcr.io/badr59k/collector-annonces@${DIGEST}"
+
+      # Verifie que notre workflow GitHub a bien signe l'image.
+      - name: Verifier la signature Cosign
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          IMAGE="ghcr.io/badr59k/collector-annonces:sha-${GITHUB_SHA}"
+          DIGEST=$(docker buildx imagetools inspect "$IMAGE" --format '{{.Manifest.Digest}}')
+          test -n "$DIGEST"
+          cosign verify "ghcr.io/badr59k/collector-annonces@${DIGEST}" \
+            --certificate-identity="https://github.com/badr59k/collector-cesi/.github/workflows/backend-ci.yml@refs/heads/main" \
+            --certificate-oidc-issuer="https://token.actions.githubusercontent.com"
