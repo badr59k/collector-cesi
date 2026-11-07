@@ -1,4 +1,4 @@
-# CodeQL
+# Hadolint
 
 **À quoi ça sert ?** Permet de vérifier les bonnes pratiques d'écriture des Dockerfiles, comme Checkstyle pour le code Java.
 
