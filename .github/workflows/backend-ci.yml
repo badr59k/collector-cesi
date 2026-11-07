@@ -105,6 +105,25 @@ jobs:
           exit-code: "1"
           format: table
 
+      # Genere l'inventaire des composants de notre image Docker.
+      - name: Generer le SBOM avec Syft
+        run: |
+          mkdir -p reports/sbom
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            anchore/syft:latest \
+            docker:collector-annonces:ci \
+            -o cyclonedx-json > reports/sbom/collector-annonces.cdx.json
+
+      # Conserve le rapport SBOM dans les artifacts GitHub Actions.
+      - name: Sauvegarder le SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-collector-annonces-${{ github.sha }}
+          path: reports/sbom/collector-annonces.cdx.json
+          retention-days: 30
+          if-no-files-found: error
+
       # Connexion à GHCR (GitHub Container Registry) uniquement sur main.
       - name: Connexion à GHCR
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'

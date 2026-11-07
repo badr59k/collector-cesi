@@ -21,3 +21,6 @@ Thumbs.db
 
 # Postgres
 infra/secrets/*
+
+# Rapports SBOM generes localement
+reports/sbom/
