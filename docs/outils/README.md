@@ -1,19 +1,20 @@
-# Les outils DevSecOps de Collector
+# Outils DevSecOps - Collector
 
-Petites fiches pour retrouver rapidement le rôle de chaque outil.
+Ce dossier regroupe les outils utilisés dans notre pipeline DevSecOps, avec une petite explication de leur rôle.
 
-Les contrôles de sécurité et de qualité se complètent : aucun ne suffit à lui seul.
+## CI/CD
+GitHub Actions, Checkout, Setup Java, Maven.
 
-- [GitHub Actions](./github-actions.md)
-- [actions/checkout](./checkout.md)
-- [actions/setup-java](./setup-java.md)
-- [Maven](./maven.md)
-- [Checkstyle](./checkstyle.md)
-- [JUnit](./junit.md)
-- [MockMvc](./mockmvc.md)
-- [JaCoCo](./jacoco.md)
-- [SonarQube Cloud (SonarCloud)](./sonarqube-cloud.md)
-- [CodeQL](./codeql.md)
-- [Gitleaks](./gitleaks.md)
-- [Docker](./docker.md)
-- [PostgreSQL](./postgresql.md)
+## Qualité et tests
+Checkstyle, JUnit, MockMvc, JaCoCo, SonarQube Cloud.
+
+## Sécurité
+CodeQL, Gitleaks, Trivy, Hadolint.
+
+## Conteneurisation
+Docker, Docker multi-stage.
+
+## Base de données
+PostgreSQL.
+
+Chaque fiche explique à quoi sert l'outil et comment nous l'utilisons dans Collector.
