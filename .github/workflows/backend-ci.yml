@@ -81,6 +81,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: lint-test
 
+    permissions:
+      contents: read
+      packages: write
+
     steps:
       # Recupere le code du projet.
       - name: Recuperer le code
@@ -100,3 +104,20 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: "1"
           format: table
+
+      # Connexion à GHCR (GitHub Container Registry) uniquement sur main.
+      - name: Connexion à GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Publie sur GHCR la même image que celle analysée par Trivy.
+      - name: Publier l'image sur GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          IMAGE="ghcr.io/badr59k/collector-annonces:sha-${GITHUB_SHA}"
+          docker tag collector-annonces:ci "$IMAGE"
+          docker push "$IMAGE"
