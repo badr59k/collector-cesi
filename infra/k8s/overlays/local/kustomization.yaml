@@ -3,3 +3,8 @@ kind: Kustomization
 
 resources:
   - ../../base
+
+# Utilise deux instances du backend dans notre environnement local.
+replicas:
+  - name: annonces-service
+    count: 2
