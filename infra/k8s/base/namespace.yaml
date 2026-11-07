@@ -1,0 +1,5 @@
+# Espace dédié aux ressources de Collector.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: collector

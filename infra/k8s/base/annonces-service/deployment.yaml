@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: annonces-service
+  namespace: collector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: annonces-service
+  template:
+    metadata:
+      labels:
+        app: annonces-service
+    spec:
+      # Le Pod n'a pas besoin d'acceder a l'API Kubernetes.
+      automountServiceAccountToken: false
+
+      # Execute les conteneurs sans les droits root.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+
+      containers:
+        - name: annonces-service
+          image: ghcr.io/badr59k/collector-annonces:sha-81386a0c2102df3050e89c2c20b3eccc4a336b4b
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+
+          # Adresse de PostgreSQL dans Kubernetes.
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres:5432/collector_annonces
+
+            # Recupere les identifiants depuis le Secret Kubernetes.
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_USER
+
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_PASSWORD
+
+            # Expose les endpoints de santé Kubernetes.
+            - name: MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED
+              value: "true"
+
+          # Vérifie si Spring Boot peut recevoir des requêtes.
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+          # Redémarre le conteneur si Spring Boot ne répond plus.
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 20
+
+          # Reserve et limite les ressources du conteneur.
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+          # Limite les privileges du conteneur.
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
