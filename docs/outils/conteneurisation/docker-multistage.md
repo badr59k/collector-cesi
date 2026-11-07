@@ -1,4 +1,4 @@
-# Docker
+# Docker Multistage
 
 **À quoi ça sert ?** Permet de construire une image Docker en plusieurs étapes, pour éviter de garder les outils de compilation dans l'image finale.
 
