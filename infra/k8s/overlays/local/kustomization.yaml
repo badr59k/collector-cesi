@@ -7,4 +7,4 @@ resources:
 # Utilise deux instances du backend dans notre environnement local.
 replicas:
   - name: annonces-service
-    count: 2
+    count: 1
