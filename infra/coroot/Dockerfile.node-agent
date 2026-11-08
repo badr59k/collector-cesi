@@ -1,0 +1,4 @@
+FROM ghcr.io/coroot/coroot-node-agent:1.38.1
+
+# Corrige la résolution du machine-id sur Docker Desktop / WSL2
+RUN ln -s /proc/1/root/var/lib/machine-id /var/lib/machine-id

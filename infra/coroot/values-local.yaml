@@ -1,0 +1,19 @@
+# Configuration Coroot pour Docker Desktop / WSL2
+
+storage:
+  size: 2Gi
+
+prometheus:
+  storage:
+    size: 2Gi
+
+clickhouse:
+  shards: 1
+  replicas: 1
+  storage:
+    size: 5Gi
+
+nodeAgent:
+  image:
+    name: collector-coroot-node-agent:1.38.1
+    pullPolicy: Never
