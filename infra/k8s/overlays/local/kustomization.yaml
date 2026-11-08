@@ -12,4 +12,4 @@ replicas:
 # ici on donne la version de l'image Docker a deployer.
 images:
   - name: ghcr.io/badr59k/collector-annonces
-    newTag: sha-81386a0c2102df3050e89c2c20b3eccc4a336b4b
+    newTag: sha-cb18cec7758e555eb50d8b3d1057c8df2f1909a2
