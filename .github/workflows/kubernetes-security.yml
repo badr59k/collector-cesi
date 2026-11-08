@@ -1,0 +1,35 @@
+name: Kubernetes Security CI
+
+# Lance le scan si les manifests ou ce workflow changent.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "infra/k8s/**"
+      - ".github/workflows/kubernetes-security.yml"
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  # Verifie la securite des fichiers Kubernetes.
+  trivy-config:
+    name: Securite Kubernetes
+    runs-on: ubuntu-latest
+
+    steps:
+      # Recupere les fichiers du depot.
+      - name: Recuperer le code
+        uses: actions/checkout@v7
+
+      # Recherche les mauvaises configurations Kubernetes.
+      - name: Analyser les manifests avec Trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          scan-ref: infra/k8s
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          format: table

@@ -27,6 +27,10 @@ spec:
         - name: annonces-service
           image: ghcr.io/badr59k/collector-annonces:sha-81386a0c2102df3050e89c2c20b3eccc4a336b4b
           imagePullPolicy: IfNotPresent
+          # Permet a Java d'utiliser des fichiers temporaires.
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           ports:
             - containerPort: 8080
 
@@ -80,6 +84,13 @@ spec:
           # Limite les privileges du conteneur.
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop:
                 - ALL
+
+      # Espace temporaire accessible en ecriture.
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 100Mi
