@@ -4,7 +4,12 @@ kind: Kustomization
 resources:
   - ../../base
 
-# Utilise deux instances du backend dans notre environnement local.
+# Utilise 2 instances du backend en local.
 replicas:
   - name: annonces-service
     count: 2
+
+# ici on donne la version de l'image Docker a deployer.
+images:
+  - name: ghcr.io/badr59k/collector-annonces
+    newTag: sha-81386a0c2102df3050e89c2c20b3eccc4a336b4b
