@@ -168,3 +168,61 @@ jobs:
           cosign verify "ghcr.io/badr59k/collector-annonces@${DIGEST}" \
             --certificate-identity="https://github.com/badr59k/collector-cesi/.github/workflows/backend-ci.yml@refs/heads/main" \
             --certificate-oidc-issuer="https://token.actions.githubusercontent.com"
+
+  # Job 3 : propose le deploiement de la nouvelle image Docker.
+  mise-a-jour-image:
+    name: Proposer la nouvelle image
+    runs-on: ubuntu-latest
+    needs: docker-security
+
+    # Execute uniquement apres un push sur main.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      # Recupere le depot avec le token autorisant la creation de PR.
+      - name: Recuperer le code
+        uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.COLLECTOR_DEPLOY_TOKEN }}
+
+      # Remplace l'ancien tag Docker par celui du commit publie.
+      - name: Mettre a jour le tag Docker
+        env:
+          IMAGE_SHA: ${{ github.sha }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          fichier = Path("infra/k8s/overlays/local/kustomization.yaml")
+          contenu = fichier.read_text(encoding="utf-8")
+
+          contenu, nombre = re.subn(
+              r"(?m)^([ \t]*newTag:[ \t]*)sha-[0-9a-f]{40}[ \t]*$",
+              lambda match: match.group(1) + "sha-" + os.environ["IMAGE_SHA"],
+              contenu,
+          )
+
+          if nombre != 1:
+              raise SystemExit("Erreur : tag Docker introuvable ou ambigu.")
+
+          fichier.write_text(contenu, encoding="utf-8")
+          PY
+
+      # Cree une PR pour proposer la nouvelle version.
+      - name: Creer la PR de deploiement
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.COLLECTOR_DEPLOY_TOKEN }}
+          add-paths: infra/k8s/overlays/local/kustomization.yaml
+          branch: deploy/collector-annonces
+          base: main
+          delete-branch: true
+          commit-message: "ci: mise a jour de l'image Docker Collector"
+          title: "ci: deploiement de la nouvelle image Collector"
+          body: |
+            PR generee automatiquement par GitHub Actions.
+
+            Met a jour l'image Docker du service annonces
+            apres sa publication et sa signature sur GHCR.
