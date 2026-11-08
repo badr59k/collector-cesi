@@ -18,8 +18,14 @@ jobs:
   # Job 1 : vérifie la qualité et la sécurité du code Java.
   # Lance Checkstyle, Hadolint, les tests JUnit, JaCoCo et SonarQube.
   lint-test:
-    name: Build & Tests
+    name: Build & Tests (${{ matrix.service }})
     runs-on: ubuntu-latest
+    # Execute les controles pour chaque microservice (pour l'instant on en a qu'un seul pour les tests).
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - annonces-service
     steps:
       # Récupère le projet avec l'historique Git pour Sonar.
       - name: Récupérer le code
@@ -42,11 +48,11 @@ jobs:
           docker run --rm \
             -v "$PWD:/repo:ro" \
             hadolint/hadolint:latest \
-            hadolint /repo/apps/backend/annonces-service/Dockerfile
+            hadolint /repo/apps/backend/${{ matrix.service }}/Dockerfile
       # Lance Checkstyle, les tests et le seuil JaCoCo.
       - name: Build, tests et couverture JaCoCo
         run: bash ./mvnw clean verify
-        working-directory: apps/backend/annonces-service
+        working-directory: apps/backend/${{ matrix.service }}
         env:
           # Identifiants réservés à la base temporaire des tests.
           POSTGRES_USER: collector_test
@@ -55,7 +61,7 @@ jobs:
       # Envoie les résultats à Sonar et vérifie son Quality Gate.
       - name: Analyse SonarQube Cloud
         run: bash ./mvnw -B org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.qualitygate.wait=true
-        working-directory: apps/backend/annonces-service
+        working-directory: apps/backend/${{ matrix.service }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     # Base PostgreSQL temporaire utilisée par les tests Spring Boot.
@@ -77,7 +83,7 @@ jobs:
   # Job 2 : construit l'image Docker du backend et analyse sa sécurité.
   # Il démarre uniquement si le premier job a réussi.
   docker-security:
-    name: Securite image Docker
+    name: Securite image Docker (${{ matrix.service }})
     runs-on: ubuntu-latest
     needs: lint-test
 
@@ -86,6 +92,14 @@ jobs:
       packages: write
       id-token: write
 
+    # Execute le job pour chaque microservice.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: annonces-service
+            image: collector-annonces
+
     steps:
       # Recupere le code du projet.
       - name: Recuperer le code
@@ -93,35 +107,35 @@ jobs:
 
       # Construit notre image Docker multi-stage.
       - name: Construire l'image Docker
-        run: docker build -t collector-annonces:ci ./apps/backend/annonces-service
+        run: docker build -t ${{ matrix.image }}:ci ./apps/backend/${{ matrix.service }}
 
       # Bloque la CI si l'image contient une vulnerabilite haute ou critique.
       - name: Scanner l'image avec Trivy
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: image
-          image-ref: collector-annonces:ci
+          image-ref: ${{ matrix.image }}:ci
           scanners: vuln
           severity: HIGH,CRITICAL
           exit-code: "1"
           format: table
 
-      # Genere l'inventaire des composants de notre image Docker.
+      # Genere l'inventaire des composants de chaque image Docker.
       - name: Generer le SBOM avec Syft
         run: |
           mkdir -p reports/sbom
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             anchore/syft:latest \
-            docker:collector-annonces:ci \
-            -o cyclonedx-json > reports/sbom/collector-annonces.cdx.json
+            docker:${{ matrix.image }}:ci \
+            -o cyclonedx-json > reports/sbom/${{ matrix.service }}.cdx.json
 
       # Conserve le rapport SBOM dans les artifacts GitHub Actions.
       - name: Sauvegarder le SBOM
         uses: actions/upload-artifact@v4
         with:
-          name: sbom-collector-annonces-${{ github.sha }}
-          path: reports/sbom/collector-annonces.cdx.json
+          name: sbom-${{ matrix.service }}-${{ github.sha }}
+          path: reports/sbom/${{ matrix.service }}.cdx.json
           retention-days: 30
           if-no-files-found: error
 
@@ -142,9 +156,11 @@ jobs:
       # Publie sur GHCR la même image que celle analysée par Trivy.
       - name: Publier l'image sur GHCR
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          IMAGE_NAME: ${{ matrix.image }}
         run: |
-          IMAGE="ghcr.io/badr59k/collector-annonces:sha-${GITHUB_SHA}"
-          docker tag collector-annonces:ci "$IMAGE"
+          IMAGE="ghcr.io/badr59k/${IMAGE_NAME}:sha-${GITHUB_SHA}"
+          docker tag "${IMAGE_NAME}:ci" "$IMAGE"
           docker push "$IMAGE"
 
       # Signe l'image publiée en utilisant son digest.
@@ -152,22 +168,46 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           set -euo pipefail
-          IMAGE="ghcr.io/badr59k/collector-annonces:sha-${GITHUB_SHA}"
+          IMAGE="ghcr.io/badr59k/${IMAGE_NAME}:sha-${GITHUB_SHA}"
           DIGEST=$(docker buildx imagetools inspect "$IMAGE" --format '{{.Manifest.Digest}}')
           test -n "$DIGEST"
-          cosign sign --yes "ghcr.io/badr59k/collector-annonces@${DIGEST}"
+          cosign sign --yes "ghcr.io/badr59k/${IMAGE_NAME}@${DIGEST}"
+        env:
+          IMAGE_NAME: ${{ matrix.image }}
 
       # Verifie que notre workflow GitHub a bien signe l'image.
       - name: Verifier la signature Cosign
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           set -euo pipefail
-          IMAGE="ghcr.io/badr59k/collector-annonces:sha-${GITHUB_SHA}"
+          IMAGE="ghcr.io/badr59k/${IMAGE_NAME}:sha-${GITHUB_SHA}"
           DIGEST=$(docker buildx imagetools inspect "$IMAGE" --format '{{.Manifest.Digest}}')
           test -n "$DIGEST"
-          cosign verify "ghcr.io/badr59k/collector-annonces@${DIGEST}" \
+          cosign verify "ghcr.io/badr59k/${IMAGE_NAME}@${DIGEST}" \
             --certificate-identity="https://github.com/badr59k/collector-cesi/.github/workflows/backend-ci.yml@refs/heads/main" \
             --certificate-oidc-issuer="https://token.actions.githubusercontent.com"
+        env:
+          IMAGE_NAME: ${{ matrix.image }}
+
+      # Transmet la version publiee au job GitOps.
+      - name: Exporter la reference Docker
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          IMAGE_NAME: ${{ matrix.image }}
+          SERVICE_NAME: ${{ matrix.service }}
+        run: |
+          mkdir -p reports/images
+          echo "ghcr.io/badr59k/${IMAGE_NAME}:sha-${GITHUB_SHA}" \
+            > "reports/images/${SERVICE_NAME}.txt"
+
+      # Conserve la reference pour le job suivant.
+      - name: Sauvegarder la reference Docker
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-${{ matrix.service }}
+          path: reports/images/${{ matrix.service }}.txt
+          if-no-files-found: error
 
   # Job 3 : propose le deploiement de la nouvelle image Docker.
   mise-a-jour-image:
@@ -179,50 +219,68 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
-      # Recupere le depot avec le token autorisant la creation de PR.
+      # Recupere le depot avec les droits de creer une PR.
       - name: Recuperer le code
         uses: actions/checkout@v7
         with:
           token: ${{ secrets.COLLECTOR_DEPLOY_TOKEN }}
 
-      # Remplace l'ancien tag Docker par celui du commit publie.
-      - name: Mettre a jour le tag Docker
-        env:
-          IMAGE_SHA: ${{ github.sha }}
+      # Recupere les references Docker generees par le job 2.
+      - name: Recuperer les references Docker
+        uses: actions/download-artifact@v8
+        with:
+          pattern: image-*
+          path: reports/images
+          merge-multiple: true
+
+      # Installe Kustomize pour modifier les versions des images.
+      - name: Installer Kustomize
         run: |
-          python3 - <<'PY'
-          import os
-          import re
-          from pathlib import Path
+          set -euo pipefail
+          KUSTOMIZE_VERSION=5.7.1
+          curl -fsSL \
+            "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" \
+            | bash -s -- "${KUSTOMIZE_VERSION}"
+          sudo mv kustomize /usr/local/bin/kustomize
+          kustomize version
 
-          fichier = Path("infra/k8s/overlays/local/kustomization.yaml")
-          contenu = fichier.read_text(encoding="utf-8")
+      # Met a jour les images de nos microservices.
+      - name: Mettre a jour les images Docker
+        working-directory: infra/k8s/overlays/local
+        run: |
+          set -euo pipefail
 
-          contenu, nombre = re.subn(
-              r"(?m)^([ \t]*newTag:[ \t]*)sha-[0-9a-f]{40}[ \t]*$",
-              lambda match: match.group(1) + "sha-" + os.environ["IMAGE_SHA"],
-              contenu,
-          )
+          shopt -s nullglob
+          fichiers=("$GITHUB_WORKSPACE"/reports/images/*.txt)
 
-          if nombre != 1:
-              raise SystemExit("Erreur : tag Docker introuvable ou ambigu.")
+          if [ ${#fichiers[@]} -eq 0 ]; then
+            echo "Erreur : aucune reference Docker trouvee."
+            exit 1
+          fi
 
-          fichier.write_text(contenu, encoding="utf-8")
-          PY
+          for fichier in "${fichiers[@]}"; do
+            IMAGE=$(cat "$fichier")
 
-      # Cree une PR pour proposer la nouvelle version.
+            # Recupere le nom de l'image sans son tag.
+            NOM_IMAGE="${IMAGE%:*}"
+
+            echo "Mise a jour de ${NOM_IMAGE}"
+            kustomize edit set image "${NOM_IMAGE}=${IMAGE}"
+          done
+
+      # Cree une seule PR contenant les nouvelles versions.
       - name: Creer la PR de deploiement
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.COLLECTOR_DEPLOY_TOKEN }}
           add-paths: infra/k8s/overlays/local/kustomization.yaml
-          branch: deploy/collector-annonces
+          branch: deploy/collector-images
           base: main
           delete-branch: true
-          commit-message: "ci: mise a jour de l'image Docker Collector"
-          title: "ci: deploiement de la nouvelle image Collector"
+          commit-message: "ci: mise a jour des images Docker Collector"
+          title: "ci: deploiement des nouvelles images Collector"
           body: |
             PR generee automatiquement par GitHub Actions.
 
-            Met a jour l'image Docker du service annonces
-            apres sa publication et sa signature sur GHCR.
+            Met a jour les images Docker des microservices
+            apres leur publication et leur signature sur GHCR.
