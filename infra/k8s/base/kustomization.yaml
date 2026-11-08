@@ -7,3 +7,4 @@ resources:
   - annonces-service/service.yaml
   - postgres/service.yaml
   - postgres/statefulset.yaml
+  - postgres/sealed-secret.yaml
