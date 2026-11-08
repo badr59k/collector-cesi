@@ -14,9 +14,23 @@ spec:
       labels:
         app: postgres
     spec:
+      # Limite les privileges du Pod PostgreSQL.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70
+        runAsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: postgres
           image: postgres:17-alpine
+          # Interdit l'escalade de privileges.
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
           ports:
             - containerPort: 5432
               name: postgres
@@ -51,10 +65,23 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 10
 
-          # Stocke les données dans un volume persistant.
+          # Stocke les donnees et les fichiers temporaires.
           volumeMounts:
             - name: postgres-data
               mountPath: /var/lib/postgresql/data
+            - name: postgres-tmp
+              mountPath: /tmp
+            - name: postgres-run
+              mountPath: /var/run/postgresql
+
+      # Volumes temporaires pour PostgreSQL.
+      volumes:
+        - name: postgres-tmp
+          emptyDir:
+            sizeLimit: 100Mi
+        - name: postgres-run
+          emptyDir:
+            sizeLimit: 20Mi
 
   volumeClaimTemplates:
     - metadata:
